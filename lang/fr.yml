@@ -37,6 +37,8 @@ fr:
   SilverStripe\Forms\CurrencyField:
     CURRENCYSYMBOL: $
   SilverStripe\Forms\DateField:
+    NOTSET: 'sans valeur'
+    TODAY: 'aujourd''hui'
     VALIDDATEFORMAT2: 'Saisissez une date au format valide ({format})'
     VALIDDATEMAXDATE: 'La date doit être antérieure ou égale à celle autorisée ({date})'
     VALIDDATEMINDATE: 'La date doit être postérieure ou égale à celle autorisée ({date})'
@@ -56,6 +58,7 @@ fr:
     BAD_METHOD: 'Ce formulaire requiert une action {method}'
     CSRF_EXPIRED_MESSAGE: 'Votre session a expiré. Merci de renvoyer le formulaire.'
     CSRF_FAILED_MESSAGE: 'Un problème technique est probablement survenu. Merci de cliquer sur le bouton "retour", de rafraîchir la page de votre navigateur, et de réessayer.'
+    FIELDISREQUIRED: '{name} est requis'
     VALIDATIONPASSWORDSDONTMATCH: 'Les mots de passe ne correspondent pas'
     VALIDATIONPASSWORDSNOTEMPTY: 'Les mots de passe ne peuvent pas être vides'
     VALIDATIONSTRONGPASSWORD: 'Le mot de passe doit comporter au moins un chiffre et un caractère alphanumérique'
@@ -76,6 +79,7 @@ fr:
     LinkExisting: 'Lien existant'
     NewRecord: 'Nouveau {type}'
     NoItemsFound: 'Aucun élément n’a été trouvé.'
+    OpenFilter: 'Open search and filter'
     PRINTEDAT: 'Imprimé à'
     PRINTEDBY: 'Imprimé par'
     PlaceHolder: 'Rechercher {type}'
@@ -95,12 +99,19 @@ fr:
     DeletePermissionsFailure: 'Vous n’avez pas les autorisations pour supprimer'
     Deleted: '{type} {name} supprimés'
     Save: Enregistrer
+  SilverStripe\Forms\GridField\GridFieldEditButton:
+    EDIT: Edit
+  SilverStripe\Forms\GridField\GridFieldFilterHeader:
+    Search: 'Search "{name}"'
+    SearchFormFaliure: 'No search form could be generated'
   SilverStripe\Forms\GridField\GridFieldGroupDeleteAction:
     UnlinkSelfFailure: 'Impossible de retirer votre propre profil de ce groupe, vous perdriez vos droits d''administration'
   SilverStripe\Forms\GridField\GridFieldPaginator:
     OF: de
     Page: Page
     View: Vue
+  SilverStripe\Forms\GridField\GridFieldViewButton:
+    VIEW: View
   SilverStripe\Forms\MoneyField:
     FIELDLABELAMOUNT: Quantité
     FIELDLABELCURRENCY: Devise
@@ -147,6 +158,8 @@ fr:
       other: '{count} années'
   SilverStripe\ORM\FieldType\DBEnum:
     ANY: Tout
+  SilverStripe\ORM\FieldType\DBForeignKey:
+    DROPDOWN_THRESHOLD_FALLBACK_MESSAGE: 'Too many related objects; fallback field in use'
   SilverStripe\ORM\Hierarchy:
     LIMITED_TITLE: 'Enfants trop nombreux ({count})'
   SilverStripe\ORM\Hierarchy\Hierarchy:
@@ -213,7 +226,7 @@ fr:
     BUTTONLOGOUT: Déconnexion
     BUTTONLOSTPASSWORD: 'J''ai perdu mon mot de passe'
     CONFIRMNEWPASSWORD: 'Confirmer nouveau mot de passe'
-    CONFIRMPASSWORD: 'Confirmer Mot De Passe'
+    CONFIRMPASSWORD: 'Confirmer mot de passe'
     CURRENT_PASSWORD: 'Mot de passe actuel'
     EDIT_PASSWORD: 'Nouveau mot de passe'
     EMAIL: Email
@@ -319,4 +332,7 @@ fr:
     LOGOUT: 'Se déconnecter'
     LOSTPASSWORDHEADER: 'Mot de passe oublié'
     NOTEPAGESECURED: 'Cette page est sécurisée. Entrez vos identifiants ci-dessous et vous pourrez y avoir accès.'
+    NOTERESETLINKINVALID: '<p>Le lien de réinitialisation du mot de passe est invalide ou a expiré.</p><p>Vous pouvez en demander un nouveau <a href="{link1}">ici</a> ou changer votre mot de passe après vous être <a href="{link2}">connecté</a>.</p>'
     NOTERESETPASSWORD: 'Entrez votre adresse email et nous vous enverrons un lien pour modifier votre mot de passe'
+    PASSWORDRESETSENTHEADER: 'Lien de réinitialisation du mot de passe envoyé'
+    PASSWORDRESETSENTTEXT: 'Merci. Un lien de réinitialisation du mot de passe vous a été envoyé, dans la mesure où un compte existe pour l''adresse email fournie.'
