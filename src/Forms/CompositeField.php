@@ -21,13 +21,11 @@ class CompositeField extends FormField
 
     /**
      * Set to true when this field is a readonly field
-     *
-     * @var bool
      */
     protected $readonly;
 
     /**
-     * @var int Toggle different css-rendering for multiple columns
+     * @var $columnCount int Toggle different css-rendering for multiple columns
      * ("onecolumn", "twocolumns", "threecolumns"). The content is determined
      * by the $children-array, so wrap all items you want to have grouped in a
      * column inside a CompositeField.
@@ -37,12 +35,12 @@ class CompositeField extends FormField
     protected $columnCount = null;
 
     /**
-     * @var string custom HTML tag to render with, e.g. to produce a <fieldset>.
+     * @var String custom HTML tag to render with, e.g. to produce a <fieldset>.
      */
     protected $tag = 'div';
 
     /**
-     * @var string Optional description for this set of fields.
+     * @var String Optional description for this set of fields.
      * If the {@link $tag} property is set to use a 'fieldset', this will be
      * rendered as a <legend> tag, otherwise its a 'title' attribute.
      */
@@ -216,7 +214,7 @@ class CompositeField extends FormField
                 'tabindex' => null,
                 'type' => null,
                 'value' => null,
-                'title' => ($this->tag === 'fieldset') ? null : $this->legend
+                'title' => ($this->tag == 'fieldset') ? null : $this->legend
             )
         );
     }
@@ -379,17 +377,9 @@ class CompositeField extends FormField
         $this->children->removeByName($fieldName, $dataFieldOnly);
     }
 
-    /**
-     * @param $fieldName
-     * @param $newField
-     * @param boolean $dataFieldOnly If this is true, then a field will only
-     * be replaced if it's a data field.  Dataless fields, such as tabs, will
-     * not be considered for replacement.
-     * @return bool
-     */
-    public function replaceField($fieldName, $newField, $dataFieldOnly = true)
+    public function replaceField($fieldName, $newField)
     {
-        return $this->children->replaceField($fieldName, $newField, $dataFieldOnly);
+        return $this->children->replaceField($fieldName, $newField);
     }
 
     public function rootFieldList()

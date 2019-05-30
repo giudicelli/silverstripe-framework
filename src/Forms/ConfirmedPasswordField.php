@@ -140,12 +140,12 @@ class ConfirmedPasswordField extends FormField
         $title = isset($title) ? $title : _t('SilverStripe\\Security\\Member.PASSWORD', 'Password');
 
         // naming with underscores to prevent values from actually being saved somewhere
-        $this->children = FieldList::create(
-            $this->passwordField = PasswordField::create(
+        $this->children = new FieldList(
+            $this->passwordField = new PasswordField(
                 "{$name}[_Password]",
                 $title
             ),
-            $this->confirmPasswordfield = PasswordField::create(
+            $this->confirmPasswordfield = new PasswordField(
                 "{$name}[_ConfirmPassword]",
                 (isset($titleConfirmField)) ? $titleConfirmField : _t('SilverStripe\\Security\\Member.CONFIRMPASSWORD', 'Confirm Password')
             )
@@ -153,11 +153,11 @@ class ConfirmedPasswordField extends FormField
 
         // has to be called in constructor because Field() isn't triggered upon saving the instance
         if ($showOnClick) {
-            $this->getChildren()->push($this->hiddenField = HiddenField::create("{$name}[_PasswordFieldVisible]"));
+            $this->children->push($this->hiddenField = new HiddenField("{$name}[_PasswordFieldVisible]"));
         }
 
         // disable auto complete
-        foreach ($this->getChildren() as $child) {
+        foreach ($this->children as $child) {
             /** @var FormField $child */
             $child->setAttribute('autocomplete', 'off');
         }
@@ -176,8 +176,8 @@ class ConfirmedPasswordField extends FormField
 
     public function setTitle($title)
     {
-        $this->getPasswordField()->setTitle($title);
-        return parent::setTitle($title);
+        parent::setTitle($title);
+        $this->passwordField->setTitle($title);
     }
 
     /**
@@ -189,7 +189,7 @@ class ConfirmedPasswordField extends FormField
     {
         // Build inner content
         $fieldContent = '';
-        foreach ($this->getChildren() as $field) {
+        foreach ($this->children as $field) {
             /** @var FormField $field */
             $field->setDisabled($this->isDisabled());
             $field->setReadonly($this->isReadonly());
@@ -207,8 +207,8 @@ class ConfirmedPasswordField extends FormField
             return $fieldContent;
         }
 
-        if ($this->getShowOnClickTitle()) {
-            $title = $this->getShowOnClickTitle();
+        if ($this->showOnClickTitle) {
+            $title = $this->showOnClickTitle;
         } else {
             $title = _t(
                 __CLASS__ . '.SHOWONCLICKTITLE',
@@ -286,11 +286,11 @@ class ConfirmedPasswordField extends FormField
     /**
      * @param string $title
      *
-     * @return $this
+     * @return ConfirmedPasswordField
      */
     public function setRightTitle($title)
     {
-        foreach ($this->getChildren() as $field) {
+        foreach ($this->children as $field) {
             /** @var FormField $field */
             $field->setRightTitle($title);
         }
@@ -310,8 +310,8 @@ class ConfirmedPasswordField extends FormField
     public function setChildrenTitles($titles)
     {
         $expectedChildren = $this->getRequireExistingPassword() ? 3 : 2;
-        if (is_array($titles) && count($titles) === $expectedChildren) {
-            foreach ($this->getChildren() as $field) {
+        if (is_array($titles) && count($titles) == $expectedChildren) {
+            foreach ($this->children as $field) {
                 if (isset($titles[0])) {
                     /** @var FormField $field */
                     $field->setTitle($titles[0]);
@@ -350,7 +350,7 @@ class ConfirmedPasswordField extends FormField
                 : null;
 
             if ($this->showOnClick && isset($value['_PasswordFieldVisible'])) {
-                $this->getChildren()->fieldByName($this->getName() . '[_PasswordFieldVisible]')
+                $this->children->fieldByName($this->getName() . '[_PasswordFieldVisible]')
                     ->setValue($value['_PasswordFieldVisible']);
             }
         } else {
@@ -362,10 +362,10 @@ class ConfirmedPasswordField extends FormField
 
         //looking up field by name is expensive, so lets check it needs to change
         if ($oldValue != $this->value) {
-            $this->getChildren()->fieldByName($this->getName() . '[_Password]')
+            $this->children->fieldByName($this->getName() . '[_Password]')
                 ->setValue($this->value);
 
-            $this->getChildren()->fieldByName($this->getName() . '[_ConfirmPassword]')
+            $this->children->fieldByName($this->getName() . '[_ConfirmPassword]')
                 ->setValue($this->confirmValue);
         }
 
@@ -380,8 +380,8 @@ class ConfirmedPasswordField extends FormField
      */
     public function setName($name)
     {
-        $this->getPasswordField()->setName($name . '[_Password]');
-        $this->getConfirmPasswordField()->setName($name . '[_ConfirmPassword]');
+        $this->passwordField->setName($name . '[_Password]');
+        $this->confirmPasswordfield->setName($name . '[_ConfirmPassword]');
         if ($this->hiddenField) {
             $this->hiddenField->setName($name . '[_PasswordFieldVisible]');
         }
@@ -417,12 +417,12 @@ class ConfirmedPasswordField extends FormField
             return true;
         }
 
-        $this->getPasswordField()->setValue($this->value);
-        $this->getConfirmPasswordField()->setValue($this->confirmValue);
-        $value = $this->getPasswordField()->Value();
+        $this->passwordField->setValue($this->value);
+        $this->confirmPasswordfield->setValue($this->confirmValue);
+        $value = $this->passwordField->Value();
 
         // both password-fields should be the same
-        if ($value != $this->getConfirmPasswordField()->Value()) {
+        if ($value != $this->confirmPasswordfield->Value()) {
             $validator->validationError(
                 $name,
                 _t('SilverStripe\\Forms\\Form.VALIDATIONPASSWORDSDONTMATCH', "Passwords don't match"),
@@ -434,7 +434,7 @@ class ConfirmedPasswordField extends FormField
 
         if (!$this->canBeEmpty) {
             // both password-fields shouldn't be empty
-            if (!$value || !$this->getConfirmPasswordField()->Value()) {
+            if (!$value || !$this->confirmPasswordfield->Value()) {
                 $validator->validationError(
                     $name,
                     _t('SilverStripe\\Forms\\Form.VALIDATIONPASSWORDSNOTEMPTY', "Passwords can't be empty"),
@@ -446,31 +446,29 @@ class ConfirmedPasswordField extends FormField
         }
 
         // lengths
-        $minLength = $this->getMinLength();
-        $maxLength = $this->getMaxLength();
-        if ($minLength || $maxLength) {
+        if (($this->minLength || $this->maxLength)) {
             $errorMsg = null;
             $limit = null;
-            if ($minLength && $maxLength) {
-                $limit = "{{$minLength},{$maxLength}}";
+            if ($this->minLength && $this->maxLength) {
+                $limit = "{{$this->minLength},{$this->maxLength}}";
                 $errorMsg = _t(
-                    __CLASS__ . '.BETWEEN',
+                    'SilverStripe\\Forms\\ConfirmedPasswordField.BETWEEN',
                     'Passwords must be {min} to {max} characters long.',
-                    ['min' => $minLength, 'max' => $maxLength]
+                    array('min' => $this->minLength, 'max' => $this->maxLength)
                 );
-            } elseif ($minLength) {
-                $limit = "{{$minLength}}.*";
+            } elseif ($this->minLength) {
+                $limit = "{{$this->minLength}}.*";
                 $errorMsg = _t(
-                    __CLASS__ . '.ATLEAST',
+                    'SilverStripe\\Forms\\ConfirmedPasswordField.ATLEAST',
                     'Passwords must be at least {min} characters long.',
-                    ['min' => $minLength]
+                    array('min' => $this->minLength)
                 );
-            } elseif ($maxLength) {
-                $limit = "{0,{$maxLength}}";
+            } elseif ($this->maxLength) {
+                $limit = "{0,{$this->maxLength}}";
                 $errorMsg = _t(
-                    __CLASS__ . '.MAXIMUM',
+                    'SilverStripe\\Forms\\ConfirmedPasswordField.MAXIMUM',
                     'Passwords must be at most {max} characters long.',
-                    ['max' => $maxLength]
+                    array('max' => $this->maxLength)
                 );
             }
             $limitRegex = '/^.' . $limit . '$/';
@@ -480,18 +478,16 @@ class ConfirmedPasswordField extends FormField
                     $errorMsg,
                     "validation"
                 );
-
-                return false;
             }
         }
 
-        if ($this->getRequireStrongPassword()) {
+        if ($this->requireStrongPassword) {
             if (!preg_match('/^(([a-zA-Z]+\d+)|(\d+[a-zA-Z]+))[a-zA-Z0-9]*$/', $value)) {
                 $validator->validationError(
                     $name,
                     _t(
                         'SilverStripe\\Forms\\Form.VALIDATIONSTRONGPASSWORD',
-                        'Passwords must have at least one digit and one alphanumeric character'
+                        "Passwords must have at least one digit and one alphanumeric character"
                     ),
                     "validation"
                 );
@@ -506,8 +502,8 @@ class ConfirmedPasswordField extends FormField
                 $validator->validationError(
                     $name,
                     _t(
-                        __CLASS__ . '.CURRENT_PASSWORD_MISSING',
-                        'You must enter your current password.'
+                        'SilverStripe\\Forms\\ConfirmedPasswordField.CURRENT_PASSWORD_MISSING',
+                        "You must enter your current password."
                     ),
                     "validation"
                 );
@@ -520,7 +516,7 @@ class ConfirmedPasswordField extends FormField
                 $validator->validationError(
                     $name,
                     _t(
-                        __CLASS__ . '.LOGGED_IN_ERROR',
+                        'SilverStripe\\Forms\\ConfirmedPasswordField.LOGGED_IN_ERROR',
                         "You must be logged in to change your password."
                     ),
                     "validation"
@@ -536,7 +532,7 @@ class ConfirmedPasswordField extends FormField
                     $validator->validationError(
                         $name,
                         _t(
-                            __CLASS__ . '.CURRENT_PASSWORD_ERROR',
+                            'SilverStripe\\Forms\\ConfirmedPasswordField.CURRENT_PASSWORD_ERROR',
                             "The current password you have entered is not correct."
                         ),
                         "validation"
@@ -573,7 +569,7 @@ class ConfirmedPasswordField extends FormField
     public function performReadonlyTransformation()
     {
         /** @var ReadonlyField $field */
-        $field = $this->castedCopy(ReadonlyField::class)
+        $field = $this->castedCopy('SilverStripe\\Forms\\ReadonlyField')
             ->setTitle($this->title ? $this->title : _t('SilverStripe\\Security\\Member.PASSWORD', 'Password'))
             ->setValue('*****');
 
@@ -612,84 +608,10 @@ class ConfirmedPasswordField extends FormField
         $currentName = "{$name}[_CurrentPassword]";
         if ($show) {
             $confirmField = PasswordField::create($currentName, _t('SilverStripe\\Security\\Member.CURRENT_PASSWORD', 'Current Password'));
-            $this->getChildren()->unshift($confirmField);
+            $this->children->unshift($confirmField);
         } else {
-            $this->getChildren()->removeByName($currentName, true);
+            $this->children->removeByName($currentName, true);
         }
         return $this;
-    }
-
-    /**
-     * @return PasswordField
-     */
-    public function getPasswordField()
-    {
-        return $this->passwordField;
-    }
-
-    /**
-     * @return PasswordField
-     */
-    public function getConfirmPasswordField()
-    {
-        return $this->confirmPasswordfield;
-    }
-
-    /**
-     * Set the minimum length required for passwords
-     *
-     * @param int $minLength
-     * @return $this
-     */
-    public function setMinLength($minLength)
-    {
-        $this->minLength = (int) $minLength;
-        return $this;
-    }
-
-    /**
-     * @return int
-     */
-    public function getMinLength()
-    {
-        return $this->minLength;
-    }
-
-    /**
-     * Set the maximum length required for passwords
-     *
-     * @param int $maxLength
-     * @return $this
-     */
-    public function setMaxLength($maxLength)
-    {
-        $this->maxLength = (int) $maxLength;
-        return $this;
-    }
-
-    /**
-     * @return int
-     */
-    public function getMaxLength()
-    {
-        return $this->maxLength;
-    }
-
-    /**
-     * @param bool $requireStrongPassword
-     * @return $this
-     */
-    public function setRequireStrongPassword($requireStrongPassword)
-    {
-        $this->requireStrongPassword = (bool) $requireStrongPassword;
-        return $this;
-    }
-
-    /**
-     * @return bool
-     */
-    public function getRequireStrongPassword()
-    {
-        return $this->requireStrongPassword;
     }
 }

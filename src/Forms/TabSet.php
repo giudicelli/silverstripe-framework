@@ -106,8 +106,9 @@ class TabSet extends CompositeField
     {
         if ($this->tabSet) {
             return $this->tabSet->ID() . '_' . $this->id . '_set';
+        } else {
+            return $this->id;
         }
-        return $this->id;
     }
 
     /**

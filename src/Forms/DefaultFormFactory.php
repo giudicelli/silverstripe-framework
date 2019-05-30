@@ -30,7 +30,6 @@ class DefaultFormFactory implements FormFactory
      * @param string $name
      * @param array $context
      * @return Form
-     * @throws InvalidArgumentException When required context is missing
      */
     public function getForm(RequestHandler $controller = null, $name = FormFactory::DEFAULT_NAME, $context = [])
     {

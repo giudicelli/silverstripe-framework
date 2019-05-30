@@ -62,12 +62,7 @@ class GridFieldEditButton implements GridField_ColumnProvider, GridField_ActionP
      */
     public function getUrl($gridField, $record, $columnName)
     {
-        return Controller::join_links(
-            $gridField->Link('item'),
-            $record->ID,
-            'edit',
-            '?gridState=' . urlencode($gridField->getState(false)->Value())
-        );
+        return Controller::join_links($gridField->Link('item'), $record->ID, 'edit');
     }
 
     /**

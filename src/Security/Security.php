@@ -202,7 +202,7 @@ class Security extends Controller implements TemplateGlobalProvider
      */
     public function getAuthenticators()
     {
-        return array_filter($this->authenticators);
+        return $this->authenticators;
     }
 
     /**
@@ -244,7 +244,7 @@ class Security extends Controller implements TemplateGlobalProvider
      */
     protected function getAuthenticator($name = 'default')
     {
-        $authenticators = $this->getAuthenticators();
+        $authenticators = $this->authenticators;
 
         if (isset($authenticators[$name])) {
             return $authenticators[$name];
@@ -286,7 +286,7 @@ class Security extends Controller implements TemplateGlobalProvider
      */
     public function hasAuthenticator($authenticator)
     {
-        $authenticators = $this->getAuthenticators();
+        $authenticators = $this->authenticators;
 
         return !empty($authenticators[$authenticator]);
     }
@@ -876,6 +876,8 @@ class Security extends Controller implements TemplateGlobalProvider
             return $this->delegateToHandler(array_values($handlers)[0], $title, $templates);
         }
 
+        $controller = $this->getResponseController($title);
+
         // Process each of the handlers
         $results = array_map(
             function (RequestHandler $handler) {
@@ -887,7 +889,7 @@ class Security extends Controller implements TemplateGlobalProvider
         $response = call_user_func_array($aggregator, [$results]);
         // The return could be a HTTPResponse, in which we don't want to call the render
         if (is_array($response)) {
-            return $this->renderWrappedController($title, $response, $templates);
+            return $this->renderWrappedController($controller, $response, $templates);
         }
 
         return $response;
@@ -904,11 +906,13 @@ class Security extends Controller implements TemplateGlobalProvider
      */
     protected function delegateToHandler(RequestHandler $handler, $title, array $templates = [])
     {
+        $controller = $this->getResponseController($title);
+
         $result = $handler->handleRequest($this->getRequest());
 
         // Return the customised controller - may be used to render a Form (e.g. login form)
         if (is_array($result)) {
-            $result = $this->renderWrappedController($title, $result, $templates);
+            $result = $this->renderWrappedController($controller, $result, $templates);
         }
 
         return $result;
@@ -922,10 +926,8 @@ class Security extends Controller implements TemplateGlobalProvider
      * @param array $templates An array of templates to use for the render
      * @return HTTPResponse|DBHTMLText
      */
-    protected function renderWrappedController($title, array $fragments, array $templates)
+    protected function renderWrappedController(Controller $controller, array $fragments, array $templates)
     {
-        $controller = $this->getResponseController($title);
-
         // if the controller calls Director::redirect(), this will break early
         if (($response = $controller->getResponse()) && $response->isFinished()) {
             return $response;

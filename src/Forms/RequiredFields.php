@@ -121,12 +121,19 @@ class RequiredFields extends Validator
             }
 
             if ($formField && $error) {
+                if($formField->Title())
+                    $title = $formField->Title();
+                else if($formField->title)
+                    $title = $formField->title;
+                else
+                    $title = $fieldName;
+                
                 $errorMessage = _t(
                     'SilverStripe\\Forms\\Form.FIELDISREQUIRED',
                     '{name} is required',
                     array(
                         'name' => strip_tags(
-                            '"' . ($formField->Title() ? $formField->Title() : $fieldName) . '"'
+                            '"' . $title . '"'
                         )
                     )
                 );

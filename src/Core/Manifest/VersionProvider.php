@@ -95,12 +95,12 @@ class VersionProvider
             $cache = Injector::inst()->get(CacheInterface::class . '.VersionProvider_composerlock');
             $cacheKey = md5($jsonData);
             if ($versions = $cache->get($cacheKey)) {
-                $lockData = json_decode($versions, true);
+                $lockData = Convert::json2array($versions);
             }
         }
 
         if (empty($lockData) && $jsonData) {
-            $lockData = json_decode($jsonData, true);
+            $lockData = Convert::json2array($jsonData);
 
             if ($cache) {
                 $cache->set($cacheKey, $jsonData);

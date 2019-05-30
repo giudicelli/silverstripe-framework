@@ -72,7 +72,6 @@ class CheckboxSetField extends MultiSelectField
     {
         $selectedValues = $this->getValueArray();
         $defaultItems = $this->getDefaultItems();
-        $disabledItems = $this->getDisabledItems();
 
         // Generate list of options to display
         $odd = false;
@@ -85,7 +84,7 @@ class CheckboxSetField extends MultiSelectField
             $extraClass .= ' val' . preg_replace('/[^a-zA-Z0-9\-\_]/', '_', $itemValue);
 
             $itemChecked = in_array($itemValue, $selectedValues) || in_array($itemValue, $defaultItems);
-            $itemDisabled = $this->isDisabled() || in_array($itemValue, $disabledItems);
+            $itemDisabled = $this->isDisabled() || in_array($itemValue, $defaultItems);
 
             $options->push(new ArrayData(array(
                 'ID' => $itemID,

@@ -4,7 +4,6 @@ namespace SilverStripe\ORM\Connect;
 
 use Exception;
 use SilverStripe\Core\ClassInfo;
-use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Environment;
 use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\Core\Injector\Injector;
@@ -23,13 +22,6 @@ class TempDatabase
      * @var string
      */
     protected $name = null;
-
-    /**
-     * Optionally remove the test DB when the PHP process exits
-     *
-     * @var boolean
-     */
-    private static $teardown_on_exit = true;
 
     /**
      * Create a new temp database
@@ -203,16 +195,13 @@ class TempDatabase
         set_error_handler($oldErrorHandler);
 
         // Ensure test db is killed on exit
-        $teardownOnExit = Config::inst()->get(static::class, 'teardown_on_exit');
-        if ($teardownOnExit) {
-            register_shutdown_function(function () {
-                try {
-                    $this->kill();
-                } catch (Exception $ex) {
-                    // An exception thrown while trying to remove a test database shouldn't fail a build, ignore
-                }
-            });
-        }
+        register_shutdown_function(function () {
+            try {
+                $this->kill();
+            } catch (Exception $ex) {
+                // An exception thrown while trying to remove a test database shouldn't fail a build, ignore
+            }
+        });
 
         return $dbname;
     }

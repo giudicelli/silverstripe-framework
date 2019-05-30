@@ -283,23 +283,6 @@ abstract class SQLConditionalExpression extends SQLExpression
             // array('type' => 'inner', 'table' => 'SiteTree', 'filter' => array("SiteTree.ID = 1",
             // "Status = 'approved'", 'order' => 20))
             if (!is_array($join)) {
-                if (empty($alias) || is_numeric($alias)) {
-                    continue;
-                }
-
-                if (preg_match('/AS\s+(?:"[^"]+"|[A-Z0-9_]+)\s*$/i', $join)) {
-                    // custom aliases override the ones defined through array keys
-                    // this is only meant to keep backward compatibility with SS <= 4.3,
-                    // to be removed in SS5
-                    continue;
-                }
-
-                $trimmedAlias = trim($alias, '"');
-
-                if ($trimmedAlias !== trim($join, '"')) {
-                    $joins[$alias] = "{$join} AS \"{$trimmedAlias}\"";
-                }
-
                 continue;
             }
 
@@ -338,15 +321,8 @@ abstract class SQLConditionalExpression extends SQLExpression
      */
     protected function getOrderedJoins($from)
     {
-        if (count($from) <= 1) {
-            return $from;
-        }
-
         // shift the first FROM table out from so we only deal with the JOINs
-        reset($from);
-        $baseFromAlias = key($from);
         $baseFrom = array_shift($from);
-
         $this->mergesort($from, function ($firstJoin, $secondJoin) {
             if (!is_array($firstJoin)
                 || !is_array($secondJoin)
@@ -359,12 +335,7 @@ abstract class SQLConditionalExpression extends SQLExpression
         });
 
         // Put the first FROM table back into the results
-        if (!empty($baseFromAlias) && !is_numeric($baseFromAlias)) {
-            $from = array_merge([$baseFromAlias => $baseFrom], $from);
-        } else {
-            array_unshift($from, $baseFrom);
-        }
-
+        array_unshift($from, $baseFrom);
         return $from;
     }
 

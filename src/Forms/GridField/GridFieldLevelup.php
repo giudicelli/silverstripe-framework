@@ -62,11 +62,6 @@ class GridFieldLevelup implements GridField_HTMLProvider
 
         /** @var DataObject|Hierarchy $modelObj */
         $modelObj = DataObject::get_by_id($modelClass, $this->currentID);
-        if (!$modelObj) {
-            throw new \LogicException(
-                "Can't find object of class $modelClass ID #{$this->currentID} for GridFieldLevelup"
-            );
-        }
 
         $parent = null;
         if ($modelObj->hasMethod('getParent')) {
@@ -91,9 +86,9 @@ class GridFieldLevelup implements GridField_HTMLProvider
         ));
 
         $template = SSViewer::get_templates_by_class($this, '', __CLASS__);
-        return [
+            return array(
             'before' => $forTemplate->renderWith($template),
-        ];
+        );
     }
 
     public function setAttributes($attrs)

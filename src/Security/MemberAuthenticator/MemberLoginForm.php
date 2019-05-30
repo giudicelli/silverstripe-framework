@@ -77,7 +77,7 @@ class MemberLoginForm extends BaseLoginForm
         $checkCurrentUser = true
     ) {
         $this->setController($controller);
-        $this->setAuthenticatorClass($authenticatorClass);
+        $this->authenticator_class = $authenticatorClass;
 
         $customCSS = project() . '/css/member_login.css';
         if (Director::fileExists($customCSS)) {
@@ -88,7 +88,7 @@ class MemberLoginForm extends BaseLoginForm
             // @todo find a more elegant way to handle this
             $logoutAction = Security::logout_url();
             $fields = FieldList::create(
-                HiddenField::create('AuthenticationMethod', null, $this->getAuthenticatorClass(), $this)
+                HiddenField::create('AuthenticationMethod', null, $this->authenticator_class, $this)
             );
             $actions = FieldList::create(
                 FormAction::create('logout', _t(
@@ -114,6 +114,7 @@ class MemberLoginForm extends BaseLoginForm
             $this->setFormAction($logoutAction);
         }
         $this->setValidator(RequiredFields::create(self::config()->get('required_fields')));
+        $this->setRedirectToFormOnValidationError(true);
     }
 
     /**
@@ -133,7 +134,7 @@ class MemberLoginForm extends BaseLoginForm
 
         $label = Member::singleton()->fieldLabel(Member::config()->get('unique_identifier_field'));
         $fields = FieldList::create(
-            HiddenField::create("AuthenticationMethod", null, $this->getAuthenticatorClass(), $this),
+            HiddenField::create("AuthenticationMethod", null, $this->authenticator_class, $this),
             // Regardless of what the unique identifer field is (usually 'Email'), it will be held in the
             // 'Email' value, below:
             // @todo Rename the field to a more generic covering name

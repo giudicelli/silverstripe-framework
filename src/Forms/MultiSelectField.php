@@ -4,7 +4,6 @@ namespace SilverStripe\Forms;
 
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\DataObjectInterface;
-use SilverStripe\ORM\FieldType\DBMultiEnum;
 use SilverStripe\ORM\Relation;
 
 /**
@@ -99,15 +98,7 @@ abstract class MultiSelectField extends SelectField
             $value = array_values($relation->getIDList());
             parent::setValue($value);
         } elseif ($record->hasField($fieldName)) {
-            // Load dataValue from field... a CSV for DBMultiEnum
-            if ($record->obj($fieldName) instanceof DBMultiEnum) {
-                $value = $this->csvDecode($record->$fieldName);
-
-            // ... JSON-encoded string for other fields
-            } else {
-                $value = $this->stringDecode($record->$fieldName);
-            }
-
+            $value = $this->stringDecode($record->$fieldName);
             parent::setValue($value);
         }
     }
@@ -138,14 +129,8 @@ abstract class MultiSelectField extends SelectField
             // Save ids into relation
             $relation->setByIDList($items);
         } elseif ($record->hasField($fieldName)) {
-            // Save dataValue into field... a CSV for DBMultiEnum
-            if ($record->obj($fieldName) instanceof DBMultiEnum) {
-                $record->$fieldName = $this->csvEncode($items);
-
-            // ... JSON-encoded string for other fields
-            } else {
-                $record->$fieldName = $this->stringEncode($items);
-            }
+            // Save dataValue into field
+            $record->$fieldName = $this->stringEncode($items);
         }
     }
 
@@ -182,45 +167,6 @@ abstract class MultiSelectField extends SelectField
         }
 
         throw new \InvalidArgumentException("Invalid string encoded value for multi select field");
-    }
-
-    /**
-     * Encode a list of values into a string as a comma separated list.
-     * Commas will be stripped from the items passed in
-     *
-     * @param array $value
-     * @return string|null
-     */
-    protected function csvEncode($value)
-    {
-        if (!$value) {
-            return null;
-        }
-        return implode(
-            ',',
-            array_map(
-                function ($x) {
-                    return str_replace(',', '', $x);
-                },
-                array_values($value)
-            )
-        );
-    }
-
-    /**
-     * Decode a list of values from a comma separated string.
-     * Spaces are trimmed
-     *
-     * @param string $value
-     * @return array
-     */
-    protected function csvDecode($value)
-    {
-        if (!$value) {
-            return [];
-        }
-
-        return preg_split('/\s*,\s*/', trim($value));
     }
 
     /**
@@ -275,11 +221,6 @@ abstract class MultiSelectField extends SelectField
         $field = $this->castedCopy('SilverStripe\\Forms\\LookupField');
         $field->setSource($this->getSource());
         $field->setReadonly(true);
-
-        // Pass through default items
-        if (!$this->getValueArray() && $this->getDefaultItems()) {
-            $field->setValue($this->getDefaultItems());
-        }
 
         return $field;
     }

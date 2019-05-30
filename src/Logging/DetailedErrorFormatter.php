@@ -25,7 +25,7 @@ class DetailedErrorFormatter implements FormatterInterface
             );
         } else {
             $context = isset($record['context']) ? $record['context'] : $record;
-            foreach (['code', 'message', 'file', 'line'] as $key) {
+            foreach (array('code','message','file','line') as $key) {
                 if (!isset($context[$key])) {
                     $context[$key] = isset($record[$key]) ? $record[$key] : null;
                 }
@@ -57,7 +57,7 @@ class DetailedErrorFormatter implements FormatterInterface
 
     public function formatBatch(array $records)
     {
-        return implode("\n", array_map([$this, 'format'], $records));
+        return implode("\n", array_map(array($this, 'format'), $records));
     }
 
     /**
@@ -79,7 +79,7 @@ class DetailedErrorFormatter implements FormatterInterface
 
     /**
      * Render a developer facing error page, showing the stack trace and details
-     * of the code where the error occurred.
+     * of the code where the error occured.
      *
      * @param int $errno
      * @param string $errstr

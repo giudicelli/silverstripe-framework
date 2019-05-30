@@ -114,11 +114,11 @@ class EmbedShortcodeProvider implements ShortcodeHandler
                 if (empty($arguments['width']) && $embed->getWidth()) {
                     $arguments['width'] = $embed->getWidth();
                 }
-                return static::videoEmbed($arguments, $embed->getCode());
+                return self::videoEmbed($arguments, $embed->getCode());
             case 'link':
-                return static::linkEmbed($arguments, $embed->getUrl(), $embed->getTitle());
+                return self::linkEmbed($arguments, $embed->getUrl(), $embed->getTitle());
             case 'photo':
-                return static::photoEmbed($arguments, $embed->getUrl());
+                return self::photoEmbed($arguments, $embed->getUrl());
             default:
                 return null;
         }

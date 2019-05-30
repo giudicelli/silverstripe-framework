@@ -48,12 +48,10 @@ class DebugViewFriendlyErrorFormatter implements FormatterInterface
      * Set default status code
      *
      * @param int $statusCode
-     * @return $this
      */
     public function setStatusCode($statusCode)
     {
         $this->statusCode = $statusCode;
-        return $this;
     }
 
     /**
@@ -70,12 +68,10 @@ class DebugViewFriendlyErrorFormatter implements FormatterInterface
      * Set friendly title
      *
      * @param string $title
-     * @return $this
      */
     public function setTitle($title)
     {
         $this->friendlyErrorMessage = $title;
-        return $this;
     }
 
     /**
@@ -92,18 +88,16 @@ class DebugViewFriendlyErrorFormatter implements FormatterInterface
      * Set default error body
      *
      * @param string $body
-     * @return $this
      */
     public function setBody($body)
     {
         $this->friendlyErrorDetail = $body;
-        return $this;
     }
 
     public function format(array $record)
     {
         // Get error code
-        $code = empty($record['code']) ? $this->getStatusCode() : $record['code'];
+        $code = empty($record['code']) ? $this->statusCode : $record['code'];
         return $this->output($code);
     }
 
@@ -133,9 +127,8 @@ class DebugViewFriendlyErrorFormatter implements FormatterInterface
         $output = $renderer->renderHeader();
         $output .= $renderer->renderInfo("Website Error", $this->getTitle(), $this->getBody());
 
-        $adminEmail = Email::config()->get('admin_email');
-        if ($adminEmail) {
-            $mailto = Email::obfuscate($adminEmail);
+        if (Email::config()->admin_email) {
+            $mailto = Email::obfuscate(Email::config()->admin_email);
             $output .= $renderer->renderParagraph('Contact an administrator: ' . $mailto . '');
         }
 

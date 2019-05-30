@@ -303,7 +303,7 @@ class GridFieldFilterHeader implements GridField_URLHandler, GridField_HTMLProvi
             'clearActionState' => $clearAction->getAttribute('data-action-state'),
         ];
 
-        return json_encode($schema);
+        return Convert::raw2json($schema);
     }
 
     /**
@@ -391,7 +391,7 @@ class GridFieldFilterHeader implements GridField_URLHandler, GridField_HTMLProvi
         $data = FormSchema::singleton()
             ->getMultipartSchema($parts, $schemaID, $form);
 
-        $response = new HTTPResponse(json_encode($data));
+        $response = new HTTPResponse(Convert::raw2json($data));
         $response->addHeader('Content-Type', 'application/json');
         return $response;
     }

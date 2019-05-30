@@ -771,20 +771,6 @@ class DataList extends ViewableData implements SS_List, Filterable, Sortable, Li
         return $this;
     }
 
-    /**
-     * Returns a generator for this DataList
-     *
-     * @return \Generator&DataObject[]
-     */
-    public function getGenerator()
-    {
-        $query = $this->dataQuery->query()->execute();
-
-        while ($row = $query->record()) {
-            yield $this->createDataObject($row);
-        }
-    }
-
     public function debug()
     {
         $val = "<h2>" . static::class . "</h2><ul>";
@@ -1131,16 +1117,6 @@ class DataList extends ViewableData implements SS_List, Filterable, Sortable, Li
             $this->remove($item);
         }
         return $this;
-    }
-
-    /**
-     * Shuffle the datalist using a random function provided by the SQL engine
-     *
-     * @return $this
-     */
-    public function shuffle()
-    {
-        return $this->sort(DB::get_conn()->random());
     }
 
     /**

@@ -19,7 +19,6 @@ use SilverStripe\i18n\i18n;
 use SilverStripe\i18n\i18nEntityProvider;
 use SilverStripe\ORM\Connect\MySQLSchemaManager;
 use SilverStripe\ORM\FieldType\DBClassName;
-use SilverStripe\ORM\FieldType\DBEnum;
 use SilverStripe\ORM\FieldType\DBComposite;
 use SilverStripe\ORM\FieldType\DBDatetime;
 use SilverStripe\ORM\FieldType\DBField;
@@ -189,23 +188,14 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
      *
      * @var array
      */
-    private $changed = [];
-
-    /**
-     * A flag to indicate that a "strict" change of the entire record been forced
-     * Use {@link getChangedFields()} and {@link isChanged()} to inspect
-     * the changed state.
-     *
-     * @var boolean
-     */
-    private $changeForced = false;
+    private $changed;
 
     /**
      * The database record (in the same format as $record), before
      * any changes.
      * @var array
      */
-    protected $original = [];
+    protected $original;
 
     /**
      * Used by onBeforeDelete() to ensure child classes call parent::onBeforeDelete()
@@ -397,8 +387,7 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
         }
 
         // prevent populateDefaults() and setField() from marking overwritten defaults as changed
-        $this->changed = [];
-        $this->changeForced = false;
+        $this->changed = array();
     }
 
     /**
@@ -947,11 +936,8 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
      * The field names can be simple names, or you can use a dot syntax to access $has_one relations.
      * For example, array("Author.FirstName" => "Jim") will set $this->Author()->FirstName to "Jim".
      *
-     * Doesn't write the main object, but if you use the dot syntax, it will write()
+     * update() doesn't write the main object, but if you use the dot syntax, it will write()
      * the related objects that it alters.
-     *
-     * When using this method with user supplied data, it's very important to
-     * whitelist the allowed keys.
      *
      * @param array $data A map of field name to data values to update.
      * @return DataObject $this
@@ -1121,9 +1107,8 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
 
     /**
      * Forces the record to think that all its data has changed.
-     * Doesn't write to the database. Force-change preseved until
-     * next write. Existing CHANGE_VALUE or CHANGE_STRICT values
-     * are preserved.
+     * Doesn't write to the database. Only sets fields as changed
+     * if they are not already marked as changed.
      *
      * @return $this
      */
@@ -1131,16 +1116,28 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
     {
         // Ensure lazy fields loaded
         $this->loadLazyFields();
+        $fields = static::getSchema()->fieldSpecs(static::class);
 
-        // Populate the null values in record so that they actually get written
-        foreach (array_keys(static::getSchema()->fieldSpecs(static::class)) as $fieldName) {
+        // $this->record might not contain the blank values so we loop on $this->inheritedDatabaseFields() as well
+        $fieldNames = array_unique(array_merge(
+            array_keys($this->record),
+            array_keys($fields)
+        ));
+
+        foreach ($fieldNames as $fieldName) {
+            if (!isset($this->changed[$fieldName])) {
+                $this->changed[$fieldName] = self::CHANGE_STRICT;
+            }
+            // Populate the null values in record so that they actually get written
             if (!isset($this->record[$fieldName])) {
                 $this->record[$fieldName] = null;
             }
         }
 
-        $this->changeForced = true;
-
+        // @todo Find better way to allow versioned to write a new version after forceChange
+        if ($this->isChanged('Version')) {
+            unset($this->changed['Version']);
+        }
         return $this;
     }
 
@@ -1377,13 +1374,11 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
         $table = $schema->tableName($class);
         $manipulation[$table] = array();
 
-        $changed = $this->getChangedFields();
-
         // Extract records for this table
         foreach ($this->record as $fieldName => $fieldValue) {
             // we're not attempting to reset the BaseTable->ID
             // Ignore unchanged fields or attempts to reset the BaseTable->ID
-            if (empty($changed[$fieldName]) || ($table === $baseTable && $fieldName === 'ID')) {
+            if (empty($this->changed[$fieldName]) || ($table === $baseTable && $fieldName === 'ID')) {
                 continue;
             }
 
@@ -1546,12 +1541,7 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
             // If there's any relations that couldn't be saved before, save them now (we have an ID here)
             $this->writeRelations();
             $this->onAfterWrite();
-
-            // Reset isChanged data
-            // DBComposites properly bound to the parent record will also have their isChanged value reset
-            $this->changed = [];
-            $this->changeForced = false;
-            $this->original = $this->record;
+            $this->changed = array();
         } else {
             if ($showDebug) {
                 Debug::message("no changes for DataObject");
@@ -2262,15 +2252,7 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
 
             // Otherwise, use the database field's scaffolder
             } elseif ($object = $this->relObject($fieldName)) {
-                if (is_object($object) && $object->hasMethod('scaffoldSearchField')) {
-                    $field = $object->scaffoldSearchField();
-                } else {
-                    throw new Exception(sprintf(
-                        "SearchField '%s' on '%s' does not return a valid DBField instance.",
-                        $fieldName,
-                        get_class($this)
-                    ));
-                }
+                $field = $object->scaffoldSearchField();
             }
 
             // Allow fields to opt out of search
@@ -2526,7 +2508,7 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
     }
 
     /**
-     * Return the fields that have changed since the last write.
+     * Return the fields that have changed.
      *
      * The change level affects what the functions defines as "changed":
      * - Level CHANGE_STRICT (integer 1) will return strict changes, even !== ones.
@@ -2560,25 +2542,13 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
             }
         }
 
-        // If change was forced, then derive change data from $this->record
-        if ($this->changeForced && $changeLevel <= self::CHANGE_STRICT) {
-            $changed = array_combine(
-                array_keys($this->record),
-                array_fill(0, count($this->record), self::CHANGE_STRICT)
-            );
-            // @todo Find better way to allow versioned to write a new version after forceChange
-            unset($changed['Version']);
-        } else {
-            $changed = $this->changed;
-        }
-
         if (is_array($databaseFieldsOnly)) {
-            $fields = array_intersect_key($changed, array_flip($databaseFieldsOnly));
+            $fields = array_intersect_key((array)$this->changed, array_flip($databaseFieldsOnly));
         } elseif ($databaseFieldsOnly) {
             $fieldsSpecs = static::getSchema()->fieldSpecs(static::class);
-            $fields = array_intersect_key($changed, $fieldsSpecs);
+            $fields = array_intersect_key((array)$this->changed, $fieldsSpecs);
         } else {
-            $fields = $changed;
+            $fields = $this->changed;
         }
 
         // Filter the list to those of a certain change level
@@ -2691,25 +2661,22 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
             }
 
             // if a field is not existing or has strictly changed
-            if (!array_key_exists($fieldName, $this->original) || $this->original[$fieldName] !== $val) {
+            if (!isset($this->record[$fieldName]) || $this->record[$fieldName] !== $val) {
                 // TODO Add check for php-level defaults which are not set in the db
                 // TODO Add check for hidden input-fields (readonly) which are not set in the db
                 // At the very least, the type has changed
                 $this->changed[$fieldName] = self::CHANGE_STRICT;
 
-                if ((!array_key_exists($fieldName, $this->original) && $val)
-                    || (array_key_exists($fieldName, $this->original) && $this->original[$fieldName] != $val)
+                if ((!isset($this->record[$fieldName]) && $val)
+                    || (isset($this->record[$fieldName]) && $this->record[$fieldName] != $val)
                 ) {
                     // Value has changed as well, not just the type
                     $this->changed[$fieldName] = self::CHANGE_VALUE;
                 }
-            // Value has been restored to its original, remove any record of the change
-            } elseif (isset($this->changed[$fieldName])) {
-                unset($this->changed[$fieldName]);
-            }
 
-            // Value is saved regardless, since the change detection relates to the last write
-            $this->record[$fieldName] = $val;
+                // Value is always saved back when strict check succeeds.
+                $this->record[$fieldName] = $val;
+            }
         }
         return $this;
     }
@@ -3154,14 +3121,9 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
      * Return the first item matching the given query.
      * All calls to get_one() are cached.
      *
-     * The filter argument supports parameterised queries (see SQLSelect::addWhere() for syntax examples). Because
-     * of that (and differently from e.g. DataList::filter()) you need to manually escape the field names:
-     * <code>
-     * $member = DataObject::get_one('Member', [ '"FirstName"' => 'John' ]);
-     * </code>
-     *
      * @param string $callerClass The class of objects to be returned
      * @param string|array $filter A filter to be inserted into the WHERE clause.
+     * Supports parameterised queries. See SQLSelect::addWhere() for syntax examples.
      * @param boolean $cache Use caching
      * @param string $orderby A sort expression to be inserted into the ORDER BY clause.
      *
@@ -3247,7 +3209,7 @@ class DataObject extends ViewableData implements DataObjectInterface, i18nEntity
     public static function reset()
     {
         // @todo Decouple these
-        DBEnum::flushCache();
+        DBClassName::clear_classname_cache();
         ClassInfo::reset_db_cache();
         static::getSchema()->reset();
         self::$_cache_get_one = array();

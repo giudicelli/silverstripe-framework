@@ -10,7 +10,7 @@ use InvalidArgumentException;
 /**
  * PDO driver database connector
  */
-class PDOConnector extends DBConnector implements TransactionManager
+class PDOConnector extends DBConnector
 {
 
     /**
@@ -20,15 +20,6 @@ class PDOConnector extends DBConnector implements TransactionManager
      * @var boolean
      */
     private static $emulate_prepare = false;
-
-    /**
-     * Should we return everything as a string in order to allow transaction savepoints?
-     * This preserves the behaviour of <= 4.3, including some bugs.
-     *
-     * @config
-     * @var boolean
-     */
-    private static $legacy_types = false;
 
     /**
      * Default strong SSL cipher to be used
@@ -74,18 +65,6 @@ class PDOConnector extends DBConnector implements TransactionManager
     protected $cachedStatements = array();
 
     /**
-     * Driver
-     * @var string
-     */
-    protected $driver = null;
-
-    /*
-     * Is a transaction currently active?
-     * @var bool
-     */
-    protected $inTransaction = false;
-
-    /**
      * Flush all prepared statements
      */
     public function flushStatements()
@@ -98,7 +77,7 @@ class PDOConnector extends DBConnector implements TransactionManager
      * one exists for the given query
      *
      * @param string $sql
-     * @return PDOStatementHandle|false
+     * @return PDOStatement
      */
     public function getOrPrepareStatement($sql)
     {
@@ -113,14 +92,11 @@ class PDOConnector extends DBConnector implements TransactionManager
             array(PDO::ATTR_CURSOR => PDO::CURSOR_FWDONLY)
         );
 
-        // Wrap in a PDOStatementHandle, to cache column metadata
-        $statementHandle = ($statement === false) ? false : new PDOStatementHandle($statement);
-
         // Only cache select statements
         if (preg_match('/^(\s*)select\b/i', $sql)) {
-            $this->cachedStatements[$sql] = $statementHandle;
+            $this->cachedStatements[$sql] = $statement;
         }
-        return $statementHandle;
+        return $statement;
     }
 
     /**
@@ -137,11 +113,10 @@ class PDOConnector extends DBConnector implements TransactionManager
     {
         $this->flushStatements();
 
+        // Build DSN string
         // Note that we don't select the database here until explicitly
         // requested via selectDatabase
-        $this->driver = $parameters['driver'];
-
-        // Build DSN string
+        $driver = $parameters['driver'] . ":";
         $dsn = array();
 
         // Typically this is false, but some drivers will request this
@@ -217,29 +192,16 @@ class PDOConnector extends DBConnector implements TransactionManager
                 $options[PDO::MYSQL_ATTR_SSL_CA] = $parameters['ssl_ca'];
             }
             // use default cipher if not provided
-            $options[PDO::MYSQL_ATTR_SSL_CIPHER] =
-                array_key_exists('ssl_cipher', $parameters) ?
-                $parameters['ssl_cipher'] :
-                self::config()->get('ssl_cipher_default');
+            $options[PDO::MYSQL_ATTR_SSL_CIPHER] = array_key_exists('ssl_cipher', $parameters) ? $parameters['ssl_cipher'] : self::config()->get('ssl_cipher_default');
         }
 
-        if (static::config()->get('legacy_types')) {
-            $options[PDO::ATTR_STRINGIFY_FETCHES] = true;
+        if (self::is_emulate_prepare()) {
             $options[PDO::ATTR_EMULATE_PREPARES] = true;
-        } else {
-            // Set emulate prepares (unless null / default)
-            $isEmulatePrepares = self::is_emulate_prepare();
-            if (isset($isEmulatePrepares)) {
-                $options[PDO::ATTR_EMULATE_PREPARES] = (bool)$isEmulatePrepares;
-            }
-
-            // Disable stringified fetches
-            $options[PDO::ATTR_STRINGIFY_FETCHES] = false;
         }
 
         // May throw a PDOException if fails
         $this->pdoConnection = new PDO(
-            $this->driver . ':' . implode(';', $dsn),
+            $driver . implode(';', $dsn),
             empty($parameters['username']) ? '' : $parameters['username'],
             empty($parameters['password']) ? '' : $parameters['password'],
             $options
@@ -249,18 +211,6 @@ class PDOConnector extends DBConnector implements TransactionManager
         if ($this->pdoConnection && $selectDB && !empty($parameters['database'])) {
             $this->databaseName = $parameters['database'];
         }
-    }
-
-
-    /**
-     * Return the driver for this connector
-     * E.g. 'mysql', 'sqlsrv', 'pgsql'
-     *
-     * @return string
-     */
-    public function getDriver()
-    {
-        return $this->driver;
     }
 
     public function getVersion()
@@ -334,11 +284,7 @@ class PDOConnector extends DBConnector implements TransactionManager
         $statement = $this->pdoConnection->query($sql);
 
         // Generate results
-        if ($statement === false) {
-            $this->databaseError($this->getLastError(), $errorLevel, $sql);
-        } else {
-            return $this->prepareResults(new PDOStatementHandle($statement), $errorLevel, $sql);
-        }
+        return $this->prepareResults($statement, $errorLevel, $sql);
     }
 
     /**
@@ -405,49 +351,52 @@ class PDOConnector extends DBConnector implements TransactionManager
     {
         $this->beforeQuery($sql);
 
-        // Fetch cached statement, or create it
-        $statementHandle = $this->getOrPrepareStatement($sql);
+        // Prepare statement
+        $statement = $this->getOrPrepareStatement($sql);
 
-        // Error handling
-        if ($statementHandle === false) {
-            $this->databaseError($this->getLastError(), $errorLevel, $sql, $this->parameterValues($parameters));
-            return null;
+        // Bind and invoke statement safely
+        if ($statement) {
+            $this->bindParameters($statement, $parameters);
+            $statement->execute($parameters);
         }
 
-        // Bind parameters
-        $this->bindParameters($statementHandle->getPDOStatement(), $parameters);
-        $statementHandle->execute($parameters);
-
         // Generate results
-        return $this->prepareResults($statementHandle, $errorLevel, $sql);
+        return $this->prepareResults($statement, $errorLevel, $sql);
     }
 
     /**
      * Given a PDOStatement that has just been executed, generate results
      * and report any errors
      *
-     * @param PDOStatementHandle $statement
+     * @param PDOStatement $statement
      * @param int $errorLevel
      * @param string $sql
      * @param array $parameters
      * @return PDOQuery
      */
-    protected function prepareResults(PDOStatementHandle $statement, $errorLevel, $sql, $parameters = array())
+    protected function prepareResults($statement, $errorLevel, $sql, $parameters = array())
     {
 
-        // Catch error
+        // Record row-count and errors of last statement
         if ($this->hasError($statement)) {
             $this->lastStatementError = $statement->errorInfo();
-            $statement->closeCursor();
-
-            $this->databaseError($this->getLastError(), $errorLevel, $sql, $this->parameterValues($parameters));
-
-            return null;
+        } elseif ($statement) {
+            // Count and return results
+            $this->rowCount = $statement->rowCount();
+            return new PDOQuery($statement);
         }
 
-        // Count and return results
-        $this->rowCount = $statement->rowCount();
-        return new PDOQuery($statement);
+        // Ensure statement is closed
+        if ($statement) {
+            $statement->closeCursor();
+        }
+
+        // Report any errors
+        if ($parameters) {
+            $parameters = $this->parameterValues($parameters);
+        }
+        $this->databaseError($this->getLastError(), $errorLevel, $sql, $parameters);
+        return null;
     }
 
     /**
@@ -490,7 +439,7 @@ class PDOConnector extends DBConnector implements TransactionManager
 
     public function getGeneratedID($table)
     {
-        return (int) $this->pdoConnection->lastInsertId();
+        return $this->pdoConnection->lastInsertId();
     }
 
     public function affectedRows()
@@ -518,61 +467,5 @@ class PDOConnector extends DBConnector implements TransactionManager
     public function isActive()
     {
         return $this->databaseName && $this->pdoConnection;
-    }
-
-    public function transactionStart($transactionMode = false, $sessionCharacteristics = false)
-    {
-        $this->inTransaction = true;
-
-        if ($transactionMode) {
-            $this->query("SET TRANSACTION $transactionMode");
-        }
-
-        if ($this->pdoConnection->beginTransaction()) {
-            if ($sessionCharacteristics) {
-                $this->query("SET SESSION CHARACTERISTICS AS TRANSACTION $sessionCharacteristics");
-            }
-            return true;
-        }
-        return false;
-    }
-
-    public function transactionEnd()
-    {
-        $this->inTransaction = false;
-        return $this->pdoConnection->commit();
-    }
-
-    public function transactionRollback($savepoint = null)
-    {
-        if ($savepoint) {
-            if ($this->supportsSavepoints()) {
-                $this->exec("ROLLBACK TO SAVEPOINT $savepoint");
-            } else {
-                throw new DatabaseException("Savepoints not supported on this PDO connection");
-            }
-        }
-
-        $this->inTransaction = false;
-        return $this->pdoConnection->rollBack();
-    }
-
-    public function transactionDepth()
-    {
-        return (int)$this->inTransaction;
-    }
-
-    public function transactionSavepoint($savepoint = null)
-    {
-        if ($this->supportsSavepoints()) {
-            $this->exec("SAVEPOINT $savepoint");
-        } else {
-            throw new DatabaseException("Savepoints not supported on this PDO connection");
-        }
-    }
-
-    public function supportsSavepoints()
-    {
-        return static::config()->get('legacy_types');
     }
 }

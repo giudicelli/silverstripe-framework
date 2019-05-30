@@ -202,11 +202,6 @@ class i18nTextCollector
         // Resolve conflicts between duplicate keys across modules
         $entitiesByModule = $this->resolveDuplicateConflicts($entitiesByModule);
 
-        // Optionally merge with existing master strings
-        if ($mergeWithExisting) {
-            $entitiesByModule = $this->mergeWithExisting($entitiesByModule);
-        }
-
         // Restrict modules we update to just the specified ones (if any passed)
         if (!empty($restrictToModules)) {
             // Normalise module names
@@ -218,6 +213,11 @@ class i18nTextCollector
             foreach (array_diff(array_keys($entitiesByModule), $modules) as $module) {
                 unset($entitiesByModule[$module]);
             }
+        }
+
+        // Optionally merge with existing master strings
+        if ($mergeWithExisting) {
+            $entitiesByModule = $this->mergeWithExisting($entitiesByModule);
         }
         return $entitiesByModule;
     }
@@ -372,15 +372,20 @@ class i18nTextCollector
         // For each module do a simple merge of the default yml with these strings
         foreach ($entitiesByModule as $module => $messages) {
             // Load existing localisations
-            $masterFile = "{$this->basePath}/{$module}/lang/{$this->defaultLocale}.yml";
+            if($module == 'app')
+                $masterFile = "{$this->basePath}/{$module}/lang/{$this->defaultLocale}.yml";
+            else
+                $masterFile = "{$this->basePath}/vendor/{$module}/lang/{$this->defaultLocale}.yml";
             $existingMessages = $this->getReader()->read($this->defaultLocale, $masterFile);
 
             // Merge
             if ($existingMessages) {
-                $entitiesByModule[$module] = array_merge(
-                    $existingMessages,
-                    $messages
-                );
+                foreach($entitiesByModule[$module] as $name => $message) {
+                    if(isset($existingMessages[$name]))
+                        $entitiesByModule[$module][$name] = $existingMessages[$name];
+                    else
+                        echo "$module $name<br />\n";
+                }
             }
         }
         return $entitiesByModule;
@@ -674,7 +679,7 @@ class i18nTextCollector
                 if ($inConcat) {
                     // Parser error
                     if (empty($currentEntity)) {
-                        user_error('Error concatenating localisation key', E_USER_WARNING);
+                        user_error('Error concatenating localisation key "'.print_r($token, true).'" : '.$fileName, E_USER_WARNING);
                     } else {
                         $currentEntity[count($currentEntity) - 1] .= $text;
                     }
